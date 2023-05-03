@@ -250,8 +250,35 @@ t.test('parse without exception', t => {
   t.end()
 })
 
-t.test('export the symbols', t => {
-  t.equal(parseJson.kIndent, Symbol.for('indent'))
-  t.equal(parseJson.kNewline, Symbol.for('newline'))
+t.test('stringify', t => {
+  const obj = { a: 1, b: { c: 3 } }
+  const min = JSON.stringify(obj)
+  const twosp = JSON.stringify(obj, null, 2)
+  const spaces = ['', 2, '\t']
+  const nls = ['\n', '\r\n', '\n\n']
+  for (const space of spaces) {
+    for (const nl of nls) {
+      t.test(JSON.stringify({ space, nl }), t => {
+        const split = JSON.stringify(obj, null, space).split('\n')
+        const json = split.join(nl) + (split.length > 1 ? nl : '')
+        const parsed = parseJson(json)
+        t.same(parsed, obj, 'object parsed properly')
+        const stringified = parseJson.stringify(parsed)
+        t.equal(stringified, json, 'got same json back that we started with')
+        // trailing newline only matters if we are indenting
+        if (space) {
+          const noTrailingNL = split.join(nl)
+          const parsed2 = parseJson(noTrailingNL)
+          const stringified2 = parseJson.stringify(parsed2)
+          t.equal(stringified2, stringified, 'trailing newline added')
+          t.equal(parseJson.stringify(obj, null, ''), min, 'override to minify')
+          t.equal(parseJson.stringify(obj, null, 0), min, 'override to minify')
+          const twospWithNL = twosp.split('\n').join(nl) + nl
+          t.equal(parseJson.stringify(parsed2, null, 2), twospWithNL)
+        }
+        t.end()
+      })
+    }
+  }
   t.end()
 })
