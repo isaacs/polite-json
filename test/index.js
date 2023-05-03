@@ -249,3 +249,9 @@ t.test('parse without exception', t => {
   t.same(parseJson.noExceptions(bom), obj, 'parses json buffer with bom')
   t.end()
 })
+
+t.test('export the symbols', t => {
+  t.equal(parseJson.kIndent, Symbol.for('indent'))
+  t.equal(parseJson.kNewline, Symbol.for('newline'))
+  t.end()
+})
