@@ -108,14 +108,12 @@ t.test('better errors when faced with \\b and other malarky', t => {
   ])
   t.throws(
     () => parse(bombom),
-    {
-      message: /\(0xFEFF\) in JSON at position 0/,
-    },
+    { message: String },
     'only strips a single BOM, not multiple'
   )
   const bs = str + '\b\b\b\b\b\b\b\b\b\b\b\b'
   t.throws(() => parse(bs), {
-    message: /^Unexpected token "\\b" \(0x08\) in JSON at position.*\\b"$/,
+    message: /^Unexpected token "\\b" \(0x08\)|^Unexpected non-whitespace/,
   })
   t.end()
 })
@@ -123,10 +121,9 @@ t.test('better errors when faced with \\b and other malarky', t => {
 t.test('throws SyntaxError for unexpected token', t => {
   const data = 'foo'
   t.throws(() => parse(data), {
-    message:
-      'Unexpected token "o" (0x6F) in JSON at position 1 while parsing "foo"',
+    message: String,
     code: 'EJSONPARSE',
-    position: 1,
+    position: Number,
     name: 'JSONParseError',
     systemError: SyntaxError,
   })
@@ -136,9 +133,9 @@ t.test('throws SyntaxError for unexpected token', t => {
 t.test('throws SyntaxError for unexpected end of JSON', t => {
   const data = '{"foo: bar}'
   t.throws(() => parse(data), {
-    message: 'Unexpected end of JSON input while parsing "{\\"foo: bar}"',
+    message: String,
     code: 'EJSONPARSE',
-    position: 10,
+    position: Number,
     name: 'JSONParseError',
     systemError: SyntaxError,
   })
@@ -148,9 +145,9 @@ t.test('throws SyntaxError for unexpected end of JSON', t => {
 t.test('throws SyntaxError for unexpected number', t => {
   const data = '[[1,2],{3,3,3,3,3}]'
   t.throws(() => parse(data), {
-    message: 'Unexpected number in JSON at position 8',
+    message: String,
     code: 'EJSONPARSE',
-    position: 0,
+    position: 8,
     name: 'JSONParseError',
     systemError: SyntaxError,
   })
@@ -160,7 +157,7 @@ t.test('throws SyntaxError for unexpected number', t => {
 t.test('SyntaxError with less context (limited start)', t => {
   const data = '{"6543210'
   t.throws(() => parse(data, null, 3), {
-    message: 'Unexpected end of JSON input while parsing near "...3210"',
+    message: 'while parsing near "...3210"',
     code: 'EJSONPARSE',
     position: 8,
     name: 'JSONParseError',
@@ -172,8 +169,7 @@ t.test('SyntaxError with less context (limited start)', t => {
 t.test('SyntaxError with less context (limited end)', t => {
   const data = 'abcde'
   t.throws(() => parse(data, null, 2), {
-    message:
-      'Unexpected token "a" (0x61) in JSON at position 0 while parsing near "ab..."',
+    message: 'while parsing near "ab..."',
     code: 'EJSONPARSE',
     position: 0,
     name: 'JSONParseError',

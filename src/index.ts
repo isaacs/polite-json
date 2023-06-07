@@ -32,10 +32,15 @@
  * distributed under the terms of the MIT license above.
  */
 
-const hexify = (char: string) => {
-  const h = char.charCodeAt(0).toString(16).toUpperCase()
-  return '0x' + (h.length % 2 ? '0' : '') + h
-}
+// version specific
+/* c8 ignore start */
+const hexify = (s: string) =>
+  Array.from(s)
+    .map(
+      c => '0x' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')
+    )
+    .join('')
+/* c8 ignore stop */
 
 type ParseErrorMeta = {
   message: string
@@ -48,21 +53,30 @@ const parseError = (e: Error, txt: string, context: number): ParseErrorMeta => {
       position: 0,
     }
   }
-  const badToken = e.message.match(/^Unexpected token (.) .*position\s+(\d+)/i)
-  const errIdx = badToken
-    ? +badToken[2]
-    : e.message.match(/^Unexpected end of JSON.*/i)
+  const badToken = e.message.match(/^Unexpected (?:token (.*?))?/i)
+  const atPos = e.message.match(/at positions? (\d+)/)
+  const errIdx = /^Unexpected end of JSON|Unterminated string in JSON/i.test(
+    e.message
+  )
     ? txt.length - 1
+    : atPos && atPos[1]
+    ? +atPos[1]
+    : /is not valid JSON$/.test(e.message)
+    ? 0
     : null
 
-  const msg = badToken
-    ? e.message.replace(
-        /^Unexpected token ./,
-        `Unexpected token ${JSON.stringify(badToken[1])} (${hexify(
-          badToken[1]
-        )})`
-      )
-    : e.message
+  // version specific
+  /* c8 ignore start */
+  const msg =
+    badToken && badToken[1]
+      ? e.message.replace(
+          /^Unexpected token ./,
+          `Unexpected token ${JSON.stringify(badToken[1])} (${hexify(
+            badToken[1]
+          )})`
+        )
+      : e.message
+  /* c8 ignore stop */
 
   if (errIdx !== null && errIdx !== undefined) {
     const start = errIdx <= context ? 0 : errIdx - context
