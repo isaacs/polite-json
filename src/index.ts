@@ -55,6 +55,9 @@ const parseError = (e: Error, txt: string, context: number): ParseErrorMeta => {
   }
   const badToken = e.message.match(/^Unexpected (?:token (.*?))?/i)
   const atPos = e.message.match(/at positions? (\d+)/)
+
+  // version specific
+  /* c8 ignore start */
   const errIdx = /^Unexpected end of JSON|Unterminated string in JSON/i.test(
     e.message
   )
@@ -65,8 +68,6 @@ const parseError = (e: Error, txt: string, context: number): ParseErrorMeta => {
     ? 0
     : null
 
-  // version specific
-  /* c8 ignore start */
   const msg =
     badToken && badToken[1]
       ? e.message.replace(

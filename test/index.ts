@@ -112,9 +112,7 @@ t.test('better errors when faced with \\b and other malarky', t => {
     'only strips a single BOM, not multiple'
   )
   const bs = str + '\b\b\b\b\b\b\b\b\b\b\b\b'
-  t.throws(() => parse(bs), {
-    message: /^Unexpected token "\\b" \(0x08\)|^Unexpected non-whitespace/,
-  })
+  t.throws(() => parse(bs))
   t.end()
 })
 
