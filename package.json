@@ -1,49 +1,89 @@
 {
-  "name": "json-parse-even-better-errors",
-  "version": "3.0.0",
-  "description": "JSON.parse with context information on error",
-  "main": "lib/index.js",
+  "name": "polite-json",
+  "version": "0.0.0",
+  "description": "JSON.parse and stringify with better errors that respects formatting",
+  "main": "dist/cjs/index.js",
+  "module": "dist/mjs/index.js",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/mjs/index.d.ts",
+        "default": "./dist/mjs/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./package.json": {
+      "import": "./package.json",
+      "require": "./package.json"
+    }
+  },
   "files": [
-    "bin/",
-    "lib/",
-    "index.d.ts"
+    "dist"
   ],
   "scripts": {
-    "test": "tap",
-    "snap": "tap",
-    "lint": "eslint \"**/*.js\"",
-    "postlint": "template-oss-check",
-    "template-oss-apply": "template-oss-apply --force",
-    "lintfix": "npm run lint -- --fix",
-    "posttest": "npm run lint"
+    "preversion": "npm test",
+    "postversion": "npm publish",
+    "prepublishOnly": "git push origin --follow-tags",
+    "prepare": "tsc -p tsconfig.json && tsc -p tsconfig-esm.json && bash scripts/fixup.sh",
+    "pretest": "npm run prepare",
+    "presnap": "npm run prepare",
+    "test": "c8 tap",
+    "snap": "c8 tap",
+    "postsnap": "npm run format",
+    "format": "prettier --write . --loglevel warn",
+    "typedoc": "typedoc --tsconfig tsconfig-esm.json ./src/*.ts"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/npm/json-parse-even-better-errors.git"
+    "url": "https://github.com/isaacs/polite-json"
   },
   "keywords": [
     "JSON",
-    "parser"
+    "parse",
+    "stringify",
+    "formatting",
+    "error",
+    "context"
   ],
-  "author": "GitHub Inc.",
   "license": "MIT",
   "devDependencies": {
-    "@npmcli/eslint-config": "^4.0.0",
-    "@npmcli/template-oss": "4.14.1",
-    "tap": "^16.3.0"
+    "@types/node": "^18.11.9",
+    "@types/tap": "^15.0.7",
+    "c8": "^7.12.0",
+    "prettier": "^2.8.2",
+    "sync-content": "^1.0.2",
+    "tap": "^16.3.3",
+    "ts-node": "^10.9.1",
+    "typedoc": "^0.23.21",
+    "typescript": "^4.9.3"
   },
   "tap": {
-    "check-coverage": true,
-    "nyc-arg": [
-      "--exclude",
-      "tap-snapshots/**"
-    ]
+    "coverage": false,
+    "node-arg": [
+      "--no-warnings",
+      "--loader",
+      "ts-node/esm"
+    ],
+    "ts": false
+  },
+  "prettier": {
+    "semi": false,
+    "printWidth": 80,
+    "tabWidth": 2,
+    "useTabs": false,
+    "singleQuote": true,
+    "jsxSingleQuote": false,
+    "bracketSameLine": true,
+    "arrowParens": "avoid",
+    "endOfLine": "lf"
   },
   "engines": {
     "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
   },
-  "templateOSS": {
-    "//@npmcli/template-oss": "This file is partially managed by @npmcli/template-oss. Edits may be overwritten.",
-    "version": "4.14.1"
+  "funding": {
+    "url": "https://github.com/sponsors/isaacs"
   }
 }

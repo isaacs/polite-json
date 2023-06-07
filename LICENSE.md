@@ -1,5 +1,6 @@
 Copyright 2017 Kat Marchán
 Copyright npm, Inc.
+Copyright 2023 Isaac Z. Schlueter
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -21,5 +22,10 @@ DEALINGS IN THE SOFTWARE.
 
 ---
 
-This library is a fork of 'better-json-errors' by Kat Marchán, extended and
+'polite-json' is a fork of 'json-parse-even-better-errors',
+extended and distributed under the terms of the MIT license
+above.
+
+'json-parse-even-better-errors' is a fork of
+'json-parse-better-errors' by Kat Marchán, extended and
 distributed under the terms of the MIT license above.

@@ -1,8 +1,12 @@
-'use strict'
-
-const t = require('tap')
-
-const parseJson = require('..')
+import t from 'tap'
+import {
+  JSONParseError,
+  kIndent,
+  kNewline,
+  parse,
+  parseNoExceptions,
+  stringify,
+} from '../'
 
 t.test('parses JSON', t => {
   const cases = Object.entries({
@@ -20,13 +24,11 @@ t.test('parses JSON', t => {
   }).map(([name, obj]) => [name, JSON.stringify(obj)])
   t.plan(cases.length)
   for (const [name, data] of cases) {
-    t.same(parseJson(data), JSON.parse(data), name)
+    t.same(parse(data), JSON.parse(data), name)
   }
 })
 
 t.test('preserves indentation and newline styles', t => {
-  const kIndent = Symbol.for('indent')
-  const kNewline = Symbol.for('newline')
   const object = { name: 'object', version: '1.2.3' }
   const array = [1, 2, 3, { object: true }, null]
   for (const newline of ['\n', '\r\n', '\n\n', '\r\n\r\n']) {
@@ -35,10 +37,21 @@ t.test('preserves indentation and newline styles', t => {
         const n = JSON.stringify({ type, newline, indent })
         const txt = JSON.stringify(obj, null, indent).replace(/\n/g, newline)
         t.test(n, t => {
-          const res = parseJson(txt)
+          const res = parse(txt)
+          if (!res || typeof res !== 'object') {
+            throw new Error('parse failed')
+          }
           // no newline if no indentation
-          t.equal(res[kNewline], indent && newline, 'preserved newline')
-          t.equal(res[kIndent], indent, 'preserved indent')
+          t.equal(
+            res[kNewline] as string | undefined,
+            indent && newline,
+            'preserved newline'
+          )
+          t.equal(
+            res[kIndent] as string | undefined,
+            indent,
+            'preserved indent'
+          )
           t.end()
         })
       }
@@ -48,15 +61,16 @@ t.test('preserves indentation and newline styles', t => {
 })
 
 t.test('indentation is the default when object/array is empty', t => {
-  const kIndent = Symbol.for('indent')
-  const kNewline = Symbol.for('newline')
   const obj = '{}'
   const arr = '[]'
   for (const newline of ['', '\n', '\r\n', '\n\n', '\r\n\r\n']) {
     const expect = newline || '\n'
     for (const str of [obj, arr]) {
       t.test(JSON.stringify({ str, newline, expect }), t => {
-        const res = parseJson(str + newline)
+        const res = parse(str + newline)
+        if (!res || typeof res !== 'object') {
+          throw new Error('parse failed')
+        }
         t.equal(res[kNewline], expect, 'got expected newline')
         t.equal(res[kIndent], '  ', 'got expected default indentation')
         t.end()
@@ -74,9 +88,9 @@ t.test('parses JSON if it is a Buffer, removing BOM bytes', t => {
     },
   })
   const data = Buffer.from(str)
-  const bom = Buffer.concat([Buffer.from([0xEF, 0xBB, 0xBF]), data])
-  t.same(parseJson(data), JSON.parse(str))
-  t.same(parseJson(bom), JSON.parse(str), 'strips the byte order marker')
+  const bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), data])
+  t.same(parse(data), JSON.parse(str))
+  t.same(parse(bom), JSON.parse(str), 'strips the byte order marker')
   t.end()
 })
 
@@ -88,12 +102,19 @@ t.test('better errors when faced with \\b and other malarky', t => {
     },
   })
   const data = Buffer.from(str)
-  const bombom = Buffer.concat([Buffer.from([0xEF, 0xBB, 0xBF, 0xEF, 0xBB, 0xBF]), data])
-  t.throws(() => parseJson(bombom), {
-    message: /\(0xFEFF\) in JSON at position 0/,
-  }, 'only strips a single BOM, not multiple')
+  const bombom = Buffer.concat([
+    Buffer.from([0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf]),
+    data,
+  ])
+  t.throws(
+    () => parse(bombom),
+    {
+      message: /\(0xFEFF\) in JSON at position 0/,
+    },
+    'only strips a single BOM, not multiple'
+  )
   const bs = str + '\b\b\b\b\b\b\b\b\b\b\b\b'
-  t.throws(() => parseJson(bs), {
+  t.throws(() => parse(bs), {
     message: /^Unexpected token "\\b" \(0x08\) in JSON at position.*\\b"$/,
   })
   t.end()
@@ -101,81 +122,70 @@ t.test('better errors when faced with \\b and other malarky', t => {
 
 t.test('throws SyntaxError for unexpected token', t => {
   const data = 'foo'
-  t.throws(
-    () => parseJson(data),
-    {
-      message: 'Unexpected token "o" (0x6F) in JSON at position 1 while parsing "foo"',
-      code: 'EJSONPARSE',
-      position: 1,
-      name: 'JSONParseError',
-      systemError: SyntaxError,
-    }
-  )
+  t.throws(() => parse(data), {
+    message:
+      'Unexpected token "o" (0x6F) in JSON at position 1 while parsing "foo"',
+    code: 'EJSONPARSE',
+    position: 1,
+    name: 'JSONParseError',
+    systemError: SyntaxError,
+  })
   t.end()
 })
 
 t.test('throws SyntaxError for unexpected end of JSON', t => {
   const data = '{"foo: bar}'
-  t.throws(
-    () => parseJson(data),
-    {
-      message: 'Unexpected end of JSON input while parsing "{\\"foo: bar}"',
-      code: 'EJSONPARSE',
-      position: 10,
-      name: 'JSONParseError',
-      systemError: SyntaxError,
-    }
-  )
+  t.throws(() => parse(data), {
+    message: 'Unexpected end of JSON input while parsing "{\\"foo: bar}"',
+    code: 'EJSONPARSE',
+    position: 10,
+    name: 'JSONParseError',
+    systemError: SyntaxError,
+  })
   t.end()
 })
 
 t.test('throws SyntaxError for unexpected number', t => {
   const data = '[[1,2],{3,3,3,3,3}]'
-  t.throws(
-    () => parseJson(data),
-    {
-      message: 'Unexpected number in JSON at position 8',
-      code: 'EJSONPARSE',
-      position: 0,
-      name: 'JSONParseError',
-      systemError: SyntaxError,
-    }
-  )
+  t.throws(() => parse(data), {
+    message: 'Unexpected number in JSON at position 8',
+    code: 'EJSONPARSE',
+    position: 0,
+    name: 'JSONParseError',
+    systemError: SyntaxError,
+  })
   t.end()
 })
 
 t.test('SyntaxError with less context (limited start)', t => {
   const data = '{"6543210'
-  t.throws(
-    () => parseJson(data, null, 3),
-    {
-      message: 'Unexpected end of JSON input while parsing near "...3210"',
-      code: 'EJSONPARSE',
-      position: 8,
-      name: 'JSONParseError',
-      systemError: SyntaxError,
-    })
+  t.throws(() => parse(data, null, 3), {
+    message: 'Unexpected end of JSON input while parsing near "...3210"',
+    code: 'EJSONPARSE',
+    position: 8,
+    name: 'JSONParseError',
+    systemError: SyntaxError,
+  })
   t.end()
 })
 
 t.test('SyntaxError with less context (limited end)', t => {
   const data = 'abcde'
-  t.throws(
-    () => parseJson(data, null, 2),
-    {
-      message: 'Unexpected token "a" (0x61) in JSON at position 0 while parsing near "ab..."',
-      code: 'EJSONPARSE',
-      position: 0,
-      name: 'JSONParseError',
-      systemError: SyntaxError,
-    }
-  )
+  t.throws(() => parse(data, null, 2), {
+    message:
+      'Unexpected token "a" (0x61) in JSON at position 0 while parsing near "ab..."',
+    code: 'EJSONPARSE',
+    position: 0,
+    name: 'JSONParseError',
+    systemError: SyntaxError,
+  })
   t.end()
 })
 
 t.test('throws TypeError for undefined', t => {
   t.throws(
-    () => parseJson(undefined),
+    //@ts-expect-error
+    () => parse(undefined),
     new TypeError('Cannot parse undefined')
   )
   t.end()
@@ -183,7 +193,8 @@ t.test('throws TypeError for undefined', t => {
 
 t.test('throws TypeError for non-strings', t => {
   t.throws(
-    () => parseJson(new Map()),
+    //@ts-expect-error
+    () => parse(new Map()),
     new TypeError('Cannot parse [object Map]')
   )
   t.end()
@@ -191,14 +202,15 @@ t.test('throws TypeError for non-strings', t => {
 
 t.test('throws TypeError for empty arrays', t => {
   t.throws(
-    () => parseJson([]),
+    //@ts-expect-error
+    () => parse([]),
     new TypeError('Cannot parse an empty array')
   )
   t.end()
 })
 
 t.test('handles empty string helpfully', t => {
-  t.throws(() => parseJson(''), {
+  t.throws(() => parse(''), {
     message: 'Unexpected end of JSON input while parsing empty string',
     name: 'JSONParseError',
     position: 0,
@@ -209,11 +221,11 @@ t.test('handles empty string helpfully', t => {
 })
 
 t.test('json parse error class', t => {
-  t.type(parseJson.JSONParseError, 'function')
+  t.type(JSONParseError, 'function')
   // we already checked all the various index checking logic above
   const poop = new Error('poop')
   const fooShouldNotShowUpInStackTrace = () => {
-    return new parseJson.JSONParseError(poop, 'this is some json', undefined, bar)
+    return new JSONParseError(poop, 'this is some json', undefined, bar)
   }
   const bar = () => fooShouldNotShowUpInStackTrace()
   const err1 = bar()
@@ -226,7 +238,7 @@ t.test('json parse error class', t => {
   t.notMatch(err1.stack, /fooShouldNotShowUpInStackTrace/)
   // calling it directly, tho, it does
   const fooShouldShowUpInStackTrace = () => {
-    return new parseJson.JSONParseError(poop, 'this is some json')
+    return new JSONParseError(poop, 'this is some json')
   }
   const err2 = fooShouldShowUpInStackTrace()
   t.equal(err2.systemError, poop, 'gets the original error attached')
@@ -239,14 +251,14 @@ t.test('json parse error class', t => {
 
 t.test('parse without exception', t => {
   const bad = 'this is not json'
-  t.equal(parseJson.noExceptions(bad), undefined, 'does not throw')
+  t.equal(parseNoExceptions(bad), undefined, 'does not throw')
   const obj = { this: 'is json' }
   const good = JSON.stringify(obj)
-  t.same(parseJson.noExceptions(good), obj, 'parses json string')
+  t.same(parseNoExceptions(good), obj, 'parses json string')
   const buf = Buffer.from(good)
-  t.same(parseJson.noExceptions(buf), obj, 'parses json buffer')
-  const bom = Buffer.concat([Buffer.from([0xEF, 0xBB, 0xBF]), buf])
-  t.same(parseJson.noExceptions(bom), obj, 'parses json buffer with bom')
+  t.same(parseNoExceptions(buf), obj, 'parses json buffer')
+  const bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), buf])
+  t.same(parseNoExceptions(bom), obj, 'parses json buffer with bom')
   t.end()
 })
 
@@ -261,20 +273,20 @@ t.test('stringify', t => {
       t.test(JSON.stringify({ space, nl }), t => {
         const split = JSON.stringify(obj, null, space).split('\n')
         const json = split.join(nl) + (split.length > 1 ? nl : '')
-        const parsed = parseJson(json)
+        const parsed = parse(json)
         t.same(parsed, obj, 'object parsed properly')
-        const stringified = parseJson.stringify(parsed)
+        const stringified = stringify(parsed)
         t.equal(stringified, json, 'got same json back that we started with')
         // trailing newline only matters if we are indenting
         if (space) {
           const noTrailingNL = split.join(nl)
-          const parsed2 = parseJson(noTrailingNL)
-          const stringified2 = parseJson.stringify(parsed2)
+          const parsed2 = parse(noTrailingNL)
+          const stringified2 = stringify(parsed2)
           t.equal(stringified2, stringified, 'trailing newline added')
-          t.equal(parseJson.stringify(obj, null, ''), min, 'override to minify')
-          t.equal(parseJson.stringify(obj, null, 0), min, 'override to minify')
+          t.equal(stringify(obj, null, ''), min, 'override to minify')
+          t.equal(stringify(obj, null, 0), min, 'override to minify')
           const twospWithNL = twosp.split('\n').join(nl) + nl
-          t.equal(parseJson.stringify(parsed2, null, 2), twospWithNL)
+          t.equal(stringify(parsed2, null, 2), twospWithNL)
         }
         t.end()
       })
