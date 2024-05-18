@@ -105,7 +105,7 @@ const parseError = (e: Error, txt: string, context: number): ParseErrorMeta => {
 
 export class JSONParseError extends SyntaxError {
   code: 'EJSONPARSE'
-  systemError: Error
+  cause: Error
   position: number
   constructor(
     er: Error,
@@ -115,9 +115,9 @@ export class JSONParseError extends SyntaxError {
   ) {
     const { message, position } = parseError(er, txt, context)
     super(message)
+    this.cause = er
     this.position = position
     this.code = 'EJSONPARSE'
-    this.systemError = er
     Error.captureStackTrace(this, caller || this.constructor)
   }
   get name() {

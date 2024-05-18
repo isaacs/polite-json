@@ -2,22 +2,18 @@
   "name": "polite-json",
   "version": "4.0.1",
   "description": "JSON.parse and stringify with better errors that respects formatting",
-  "main": "dist/cjs/index.js",
-  "module": "dist/mjs/index.js",
+  "main": "./dist/commonjs/index.js",
   "exports": {
+    "./package.json": "./package.json",
     ".": {
       "import": {
-        "types": "./dist/mjs/index.d.ts",
-        "default": "./dist/mjs/index.js"
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
       },
       "require": {
-        "types": "./dist/cjs/index.d.ts",
-        "default": "./dist/cjs/index.js"
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
       }
-    },
-    "./package.json": {
-      "import": "./package.json",
-      "require": "./package.json"
     }
   },
   "files": [
@@ -27,11 +23,11 @@
     "preversion": "npm test",
     "postversion": "npm publish",
     "prepublishOnly": "git push origin --follow-tags",
-    "prepare": "tsc -p tsconfig.json && tsc -p tsconfig-esm.json && bash scripts/fixup.sh",
+    "prepare": "tshy",
     "pretest": "npm run prepare",
     "presnap": "npm run prepare",
-    "test": "c8 tap",
-    "snap": "c8 tap",
+    "test": "tap",
+    "snap": "tap",
     "postsnap": "npm run format",
     "format": "prettier --write . --loglevel warn",
     "typedoc": "typedoc --tsconfig tsconfig-esm.json ./src/*.ts"
@@ -55,19 +51,12 @@
     "c8": "^7.12.0",
     "prettier": "^2.8.2",
     "sync-content": "^1.0.2",
-    "tap": "^16.3.3",
-    "ts-node": "^10.9.1",
-    "typedoc": "^0.23.21",
-    "typescript": "^4.9.3"
+    "tap": "^18.8.0",
+    "tshy": "^1.14.0",
+    "typedoc": "^0.23.21"
   },
   "tap": {
-    "coverage": false,
-    "node-arg": [
-      "--no-warnings",
-      "--loader",
-      "ts-node/esm"
-    ],
-    "ts": false
+    "typecheck": true
   },
   "prettier": {
     "semi": false,
@@ -85,5 +74,13 @@
   },
   "funding": {
     "url": "https://github.com/sponsors/isaacs"
-  }
+  },
+  "tshy": {
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts"
+    }
+  },
+  "types": "./dist/commonjs/index.d.ts",
+  "type": "module"
 }

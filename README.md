@@ -79,6 +79,10 @@ helpful.
 
 `context` defaults to 20.
 
+The `er` parameter is attached as the `JSONParseError.cause`
+property. This is used to provide a reference to the original
+system error that was raised by `JSON.parse()`.
+
 Set a `caller` function to trim internal implementation details
 out of the stack trace. When calling `parseJson`, this is set to
 the `parseJson` function. If not set, then the constructor

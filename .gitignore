@@ -1,3 +1,5 @@
 /dist
+/.tap
+/docs
 /node_modules
 /coverage

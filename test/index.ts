@@ -6,7 +6,21 @@ import {
   parse,
   parseNoExceptions,
   stringify,
-} from '../'
+} from '../dist/esm/index.js'
+
+type MaybePolite = Record<string, any> & {
+  [kIndent]?: string
+  [kNewline]?: string
+}
+const c = (p: unknown): unknown => {
+  if (p && typeof p === 'object') {
+    const mp = { ...(p as MaybePolite) }
+    delete mp[kIndent]
+    delete mp[kNewline]
+    return mp
+  }
+  return p
+}
 
 t.test('parses JSON', t => {
   const cases = Object.entries({
@@ -23,8 +37,8 @@ t.test('parses JSON', t => {
     false: false,
   }).map(([name, obj]) => [name, JSON.stringify(obj)])
   t.plan(cases.length)
-  for (const [name, data] of cases) {
-    t.same(parse(data), JSON.parse(data), name)
+  for (const [name, data] of cases as [string, string][]) {
+    t.same(c(parse(data)), JSON.parse(data), name)
   }
 })
 
@@ -89,8 +103,8 @@ t.test('parses JSON if it is a Buffer, removing BOM bytes', t => {
   })
   const data = Buffer.from(str)
   const bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), data])
-  t.same(parse(data), JSON.parse(str))
-  t.same(parse(bom), JSON.parse(str), 'strips the byte order marker')
+  t.same(c(parse(data)), JSON.parse(str))
+  t.same(c(parse(bom)), JSON.parse(str), 'strips the byte order marker')
   t.end()
 })
 
@@ -106,11 +120,7 @@ t.test('better errors when faced with \\b and other malarky', t => {
     Buffer.from([0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf]),
     data,
   ])
-  t.throws(
-    () => parse(bombom),
-    { message: String },
-    'only strips a single BOM, not multiple'
-  )
+  t.throws(() => parse(bombom))
   const bs = str + '\b\b\b\b\b\b\b\b\b\b\b\b'
   t.throws(() => parse(bs))
   t.end()
@@ -123,7 +133,7 @@ t.test('throws SyntaxError for unexpected token', t => {
     code: 'EJSONPARSE',
     position: Number,
     name: 'JSONParseError',
-    systemError: SyntaxError,
+    cause: SyntaxError,
   })
   t.end()
 })
@@ -135,7 +145,7 @@ t.test('throws SyntaxError for unexpected end of JSON', t => {
     code: 'EJSONPARSE',
     position: Number,
     name: 'JSONParseError',
-    systemError: SyntaxError,
+    cause: SyntaxError,
   })
   t.end()
 })
@@ -147,7 +157,7 @@ t.test('throws SyntaxError for unexpected number', t => {
     code: 'EJSONPARSE',
     position: 8,
     name: 'JSONParseError',
-    systemError: SyntaxError,
+    cause: SyntaxError,
   })
   t.end()
 })
@@ -159,7 +169,7 @@ t.test('SyntaxError with less context (limited start)', t => {
     code: 'EJSONPARSE',
     position: 8,
     name: 'JSONParseError',
-    systemError: SyntaxError,
+    cause: SyntaxError,
   })
   t.end()
 })
@@ -171,7 +181,7 @@ t.test('SyntaxError with less context (limited end)', t => {
     code: 'EJSONPARSE',
     position: 0,
     name: 'JSONParseError',
-    systemError: SyntaxError,
+    cause: SyntaxError,
   })
   t.end()
 })
@@ -209,7 +219,7 @@ t.test('handles empty string helpfully', t => {
     name: 'JSONParseError',
     position: 0,
     code: 'EJSONPARSE',
-    systemError: SyntaxError,
+    cause: SyntaxError,
   })
   t.end()
 })
@@ -223,7 +233,7 @@ t.test('json parse error class', t => {
   }
   const bar = () => fooShouldNotShowUpInStackTrace()
   const err1 = bar()
-  t.equal(err1.systemError, poop, 'gets the original error attached')
+  t.equal(err1.cause, poop, 'gets the original error attached')
   t.equal(err1.position, 0)
   t.equal(err1.message, `poop while parsing 'this is some json'`)
   t.equal(err1.name, 'JSONParseError')
@@ -235,7 +245,7 @@ t.test('json parse error class', t => {
     return new JSONParseError(poop, 'this is some json')
   }
   const err2 = fooShouldShowUpInStackTrace()
-  t.equal(err2.systemError, poop, 'gets the original error attached')
+  t.equal(err2.cause, poop, 'gets the original error attached')
   t.equal(err2.position, 0)
   t.equal(err2.message, `poop while parsing 'this is some json'`)
   t.match(err2.stack, /fooShouldShowUpInStackTrace/)
@@ -268,7 +278,7 @@ t.test('stringify', t => {
         const split = JSON.stringify(obj, null, space).split('\n')
         const json = split.join(nl) + (split.length > 1 ? nl : '')
         const parsed = parse(json)
-        t.same(parsed, obj, 'object parsed properly')
+        t.same(c(parsed), obj, 'object parsed properly')
         const stringified = stringify(parsed)
         t.equal(stringified, json, 'got same json back that we started with')
         // trailing newline only matters if we are indenting
